@@ -11,11 +11,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-with open("menu.json", "r") as read_file:
-    data = json.load(read_file)
 app = FastAPI()
-
-
 
 # to get a string like this run:
 # openssl rand -hex 32
@@ -23,9 +19,8 @@ SECRET_KEY = "91969153622a3f2c43d7420e19f8811232d5ed0ab46860c3c7a961647c5a6ecf"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-
-db = {
-    "asdf": {
+fake_user_db = {
+    "user": {
         "username": "davidmoelia",
         "full_name": "David M",
         "email": "davidmoe@example.com",
@@ -33,7 +28,6 @@ db = {
         "disabled": False,
     }
 }
-
 
 class Token(BaseModel):
     access_token: str
@@ -82,9 +76,9 @@ def get_user(db, username: str):
 
 
 
-def authenticate_user(fake_db, username: str, password: str):
+def authenticate_user(db, username: str, password: str):
 
-    user = get_user(fake_db, username)
+    user = get_user(db, username)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -118,7 +112,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(db, username=token_data.username)
+    user = get_user(fake_user_db, username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -132,7 +126,7 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = authenticate_user(fake_user_db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -156,6 +150,9 @@ async def read_own_items(current_user: User = Depends(get_current_active_user)):
     return [{"item_id": "Foo", "owner": current_user.username}]
 
 
+
+with open("menu.json", "r") as read_file:
+    data = json.load(read_file)
 
 @app.get("/") 
 async def root(token: str = Depends(oauth2_scheme)):
